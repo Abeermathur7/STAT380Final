@@ -1,0 +1,29 @@
+---
+title: "Mathur_Johri_Jakobs_Pourhamidi_Final_Project"
+author: "Abeer Mathur, Marvin Jakobs, Divyesh Johri, Cinah Pourhamidi"
+date: "2022-12-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+library(dplyr)
+```
+### TASK 1
+
+#### Load in datasets
+```{r}
+CODGameModes <- read.csv("C:/Users/Abeer/OneDrive/Desktop/STAT 380/CODGameModes.csv")
+CODGames_p1_380 <- read.csv("C:/Users/Abeer/OneDrive/Desktop/STAT 380/CODGames_p1_380.csv")
+CODGames_p2_380 <- read.csv("C:/Users/Abeer/OneDrive/Desktop/STAT 380/CODGames_p2_380.csv")
+```
+
+#### Research Question: Which game mode is most likely to reach the score limit? 
+```{r}
+CODGames<- rbind(CODGames_p1_380,CODGames_p2_380)
+
+```
