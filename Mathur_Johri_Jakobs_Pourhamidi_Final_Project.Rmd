@@ -30,7 +30,7 @@ dupModes <- CODGameModes
 dupModes$Mode <- paste("HC -", dupModes$Mode) #adding HC mode limits
 allModes <- rbind(dupModes,CODGameModes)
 
-scoreLimit <- left_join(CODGames,allModes, by = c("GameType"="Mode")) #add time limit column
+scoreLimit <- left_join(CODGames,allModes, by = c("GameType"="Mode")) #add score limit column
 
 scoreLimit <- tidyr::separate(data = scoreLimit, col = Result, sep = "-", into = c("score1","score2")) #put each team score into individual columns
 
