@@ -24,10 +24,21 @@ CODGames_p2_380 <- read.csv("https://raw.githubusercontent.com/Abeermathur7/STAT
 
 #### Research Question: Which game mode is most likely to reach the score limit? 
 ```{r message=FALSE, warning=FALSE}
-CODGames<- rbind(CODGames_p1_380,CODGames_p2_380)
+CODGames<- rbind(CODGames_p1_380,CODGames_p2_380) #combine raw data
 
-scoreLimit <- tidyr::separate(data = CODGames, col = Result, sep = "-", into = c("score1","score2")) %>%
-  mutate(limitReached = ifelse(score1 == 100 | score2 == 100, 1,0))
+dupModes <- CODGameModes
+dupModes$Mode <- paste("HC -", dupModes$Mode) #adding HC mode limits
+allModes <- rbind(dupModes,CODGameModes)
 
-scoreLimit %>% group_by(GameType) %>% tally(limitReached)
+scoreLimit <- left_join(CODGames,allModes, by = c("GameType"="Mode")) #add time limit column
+
+scoreLimit <- tidyr::separate(data = scoreLimit, col = Result, sep = "-", into = c("score1","score2")) #put each team score into individual columns
+
+scoreLimit <- mutate(scoreLimit, limitReached = ifelse(score1 == ScoreLimit | score2 == ScoreLimit,1,0)) #note if either team reached the limit
+         
+limitList <- scoreLimit %>% group_by(GameType) %>% tally(limitReached) #group by and count games that reached score limit for each mode
+totalCount <- scoreLimit %>% group_by(GameType) %>% summarise(count = n()) #total games of each mode played
+limitList$total <- total$count 
+limitList <- mutate(limitList, limitProb = n/total) #find ratio of score limit reached to games played
+limitList %>% arrange(desc(limitProb)) #print descending
 ```
