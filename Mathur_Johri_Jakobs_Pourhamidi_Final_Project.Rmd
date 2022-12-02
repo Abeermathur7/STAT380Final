@@ -10,14 +10,15 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(dplyr)
 library(tidyverse)
+library(readr)
 ```
 ### TASK 1
 
 #### Load in datasets
-```{r}
+```{r message=FALSE, warning=FALSE}
 CODGameModes <- read.csv("https://raw.githubusercontent.com/Abeermathur7/STAT380Final/main/CODGameModes.csv")
 CODGames_p1_380 <- read.csv("https://raw.githubusercontent.com/Abeermathur7/STAT380Final/main/CODGames_p1_380.csv")
 CODGames_p2_380 <- read.csv("https://raw.githubusercontent.com/Abeermathur7/STAT380Final/main/CODGames_p2_380.csv")
@@ -39,7 +40,7 @@ scoreLimit <- mutate(scoreLimit, limitReached = ifelse(score1 == ScoreLimit | sc
          
 limitList <- scoreLimit %>% group_by(GameType) %>% tally(limitReached) #group by and count games that reached score limit for each mode
 totalCount <- scoreLimit %>% group_by(GameType) %>% summarise(count = n()) #total games of each mode played
-limitList$total <- total$count 
+limitList$total <- totalCount$count 
 limitList <- mutate(limitList, limitProb = n/total) #find ratio of score limit reached to games played
 limitList %>% arrange(desc(limitProb)) #print descending
 ```
