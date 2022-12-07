@@ -70,7 +70,12 @@ sig_predictors
 XPType, Result, Eliminations, Date, and Map1 are the predictors that are most associated with TotalXP. We calculated this by preforming an rpart on TotalXP and picked out the variables that were used to split the data to record them as significant predictors.
 
 #### Research Question: Of the predictors associated with the response, select one of the predictors and explain the relationship between the predictor and TotalXP. 
-```{r}
-ggplot(CODGames, aes(x=Map1, y=TotalXP)) + geom_bar(stat="identity") + theme(axis.text.x=element_text(angle=90, hjust=1))
-## first bar should not be that big, there are no TotalXP values that large....
+```{r message=FALSE, warning=FALSE}
+groupElim <- CODGames %>% group_by(Eliminations) %>% summarize(avgXP = mean(TotalXP)) #group by num of eliminations and average the TotalXP
+elim.reg <- lm(avgXP ~ Eliminations, data = groupElim) #create the lm to report the slope/intercept later
+string <- paste("XP =",round(elim.reg$coefficients[[2]],2),"Elims +",round(elim.reg$coefficients[[1]],2)) #turn lm coeff into a formula string
+ggplot(groupElim, aes(x=Eliminations, y=avgXP)) + geom_point() +  #ggplot with method lm and the formula string created above
+  geom_smooth(method = "lm") + annotate("text",x = 10, y = 40000, label = string,size = 4) 
 ```
+
+The predictor 'Eliminations' has a very strong positive linear correlation to the TotalXP variable. We calculated this by grouping the number of eliminations into a new dataframe and averaging the TotalXP received by people getting that number of eliminations into a new column of that dataframe. We then ggplotted it and observed a very strong linear relationship before adding the blue line and creating a linear model with the two variables to print its slope and intercept.
