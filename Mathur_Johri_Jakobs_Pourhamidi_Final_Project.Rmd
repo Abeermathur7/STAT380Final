@@ -14,24 +14,26 @@ knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(tidyverse)
 library(readr)
+library(rpart)
 ```
-### TASK 1
 
-#### Load in datasets
+#### Load and clean datasets
 ```{r message=FALSE, warning=FALSE}
 CODGameModes <- read.csv("https://raw.githubusercontent.com/Abeermathur7/STAT380Final/main/CODGameModes.csv")
 CODGames_p1_380 <- read.csv("https://raw.githubusercontent.com/Abeermathur7/STAT380Final/main/CODGames_p1_380.csv")
 CODGames_p2_380 <- read.csv("https://raw.githubusercontent.com/Abeermathur7/STAT380Final/main/CODGames_p2_380.csv")
-```
 
-#### Research Question: Which game mode is most likely to reach the score limit? 
-```{r message=FALSE, warning=FALSE}
 CODGames<- rbind(CODGames_p1_380,CODGames_p2_380) #combine raw data
 
 dupModes <- CODGameModes
 dupModes$Mode <- paste("HC -", dupModes$Mode) #adding HC mode limits
 allModes <- rbind(dupModes,CODGameModes)
+```
 
+### Task 1 (Exploratory Analysis): 
+
+#### Research Question: Which game mode is most likely to reach the score limit? 
+```{r message=FALSE, warning=FALSE}
 scoreLimit <- left_join(CODGames,allModes, by = c("GameType"="Mode")) #add score limit column
 
 scoreLimit <- tidyr::separate(data = scoreLimit, col = Result, sep = "-", into = c("score1","score2")) #put each team score into individual columns
@@ -49,4 +51,26 @@ ggplot(limitList, aes(x=GameType,y=limitProb)) +
   geom_bar(stat = "identity", fill = "#301934") + 
   theme(axis.text.x=element_text(angle=45, hjust=1)) +
   ylab("Prob of Score Limit Reached")
+```
+
+Both types of Domination and Hardpoint have the highest chances of reaching the score limit, with domination reaching it 100% of the time. This may be because...............
+
+### Task 2 (Inference):
+
+#### Research Question: Which predictors are associated with the TotalXP?
+```{r}
+subCODGames <- CODGames %>% select(1:16) #remove cols where almost every row is NA
+model <- rpart(TotalXP ~ ., data = subCODGames) #build rpart model
+sig <- as_tibble(model$frame$var) #leafs and splits from rpart frame to tibble
+sig_predictors <- sig %>% filter(. != "<leaf>") %>% unique() #delete duplicate splits & all leafs for sig vars
+
+sig_predictors
+```
+
+XPType, Result, Eliminations, Date, and Map1 are the predictors that are most associated with TotalXP. We calculated this by preforming an rpart on TotalXP and picked out the variables that were used to split the data to record them as significant predictors.
+
+#### Research Question: Of the predictors associated with the response, select one of the predictors and explain the relationship between the predictor and TotalXP. 
+```{r}
+ggplot(CODGames, aes(x=Map1, y=TotalXP)) + geom_bar(stat="identity") + theme(axis.text.x=element_text(angle=90, hjust=1))
+## first bar should not be that big, there are no TotalXP values that large....
 ```
