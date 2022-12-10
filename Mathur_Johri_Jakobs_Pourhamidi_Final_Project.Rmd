@@ -15,6 +15,9 @@ library(dplyr)
 library(tidyverse)
 library(readr)
 library(rpart)
+library(randomForest)
+library(stats)
+library(FNN)
 ```
 
 #### Load and clean datasets
@@ -79,3 +82,49 @@ ggplot(groupElim, aes(x=Eliminations, y=avgXP)) + geom_point() +  #ggplot with m
 ```
 
 The predictor 'Eliminations' has a very strong positive linear correlation to the TotalXP variable. We calculated this by grouping the number of eliminations into a new dataframe and averaging the TotalXP received by people getting that number of eliminations into a new column of that dataframe. We then ggplotted it and observed a very strong linear relationship before adding the blue line and creating a linear model with the two variables to print its slope and intercept.
+
+
+```{r}
+subCODGames <- subCODGames %>% drop_na()
+
+subCODGames$PrimaryWeapon <- as.factor(subCODGames$PrimaryWeapon)
+
+
+set.seed(123)
+inds <- sample(1:nrow(subCODGames), floor(.8*nrow(subCODGames)))
+Train <- subCODGames[inds, ]
+Test <- subCODGames [-inds, ]
+set.seed(NULL)
+```
+
+```{r}
+set.seed(123)
+model_rf <- randomForest(PrimaryWeapon ~., data = Train, ntrees = 500)
+set.seed(NULL)
+
+predictsRf <- predict(model_rf, newdata = Test)
+
+cat("Accuracy Random Forest:", mean(predictsRf == Test$PrimaryWeapon))
+```
+
+```{r}
+xvars <- unlist(names(select(subCODGames, -PrimaryWeapon)))
+#"Map1","Map2","Choice","MapVote","Date","FullPartial","Result"      
+#,"XPType","DidPlayerVote","GameType" 
+subCODGames[, xvars] <- scale(subCODGames[,xvars], center = TRUE, scale = TRUE) 
+
+rmsevec <- rep(NA,50)
+
+for (x in 1:50) {
+  knn_res <- knn(train = Train[,xvars,drop=FALSE], 
+               test = Test[,xvars,drop=FALSE], 
+               cl=Train$PrimaryWeapon,
+               k=x)
+  rmsevec[x] <- sqrt((Test$PrimaryWeapon - knn_res$pred)^2)
+}
+```
+
+
+
+
+
