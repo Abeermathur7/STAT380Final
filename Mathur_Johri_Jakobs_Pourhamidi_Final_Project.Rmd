@@ -18,6 +18,7 @@ library(rpart)
 library(randomForest)
 library(stats)
 library(FNN)
+library(fastDummies)
 ```
 
 #### Load and clean datasets
@@ -85,21 +86,63 @@ The predictor 'Eliminations' has a very strong positive linear correlation to th
 
 
 ```{r}
+# Cleaning the data from NAs
 subCODGames <- subCODGames %>% drop_na()
 
+# Function to help separate Result into a categorical variable
+matchResult <- function(x){
+  results <- str_split(x, "-")[[1]]
+  diff <- strtoi(results[1]) - strtoi(results[2])
+  if(diff < 0){
+    return("Loss")
+  } else if (diff > 0) {
+    return("Win")
+  } else {
+    return("Draw")
+  }
+}
+# Separating Result into a categorical variable
+subCODGames$ResultCat <- apply(data.frame(subCODGames$Result), 1, matchResult)
+
+# Make PrimaryWeapon a factor
 subCODGames$PrimaryWeapon <- as.factor(subCODGames$PrimaryWeapon)
 
+# Remove spaces from categorical variable values
+cat_vars = c('Map1', 'Map2', 'Choice', 'FullPartial', 'ResultCat', 'XPType', 'DidPlayerVote', 'GameType')
+for(cat_var in cat_vars){
+  subCODGames[,cat_var] <- apply(data.frame(subCODGames[,cat_var]), 1, str_replace_all, pattern=" ", replacement="_")
+  subCODGames[,cat_var] <- apply(data.frame(subCODGames[,cat_var]), 1, str_replace_all, pattern="-", replacement="_")
+  subCODGames[,cat_var] <- apply(data.frame(subCODGames[,cat_var]), 1, str_replace_all, pattern="'", replacement="_")
+  subCODGames[,cat_var] <- apply(data.frame(subCODGames[,cat_var]), 1, str_replace_all, pattern="%", replacement="percent")
+  subCODGames[,cat_var] <- apply(data.frame(subCODGames[,cat_var]), 1, str_replace_all, pattern="\\+", replacement="plus")
+}
+
+# Make dummy variables (indicators) for each categorical variable
+subCODGames_dummy <- dummy_cols(subCODGames, select_columns = cat_vars, remove_selected_columns = TRUE)
+
+
+# Deselect variables that aren't useful
+badVars <- c("Date", "Result", "MapVote")
+subCODGames_dummy <- subCODGames_dummy %>% select(-badVars)
+```
+
+
+```{r}
+# Select x variables for model building purposes
+xvars <- names(select(subCODGames_dummy, -PrimaryWeapon))
+# Scale the x variables (mainly for the kNN model)
+subCODGames_dummy[,xvars] <- scale(subCODGames_dummy[,xvars], center = TRUE, scale = TRUE)
 
 set.seed(123)
-inds <- sample(1:nrow(subCODGames), floor(.8*nrow(subCODGames)))
-Train <- subCODGames[inds, ]
-Test <- subCODGames [-inds, ]
+inds <- sample(1:nrow(subCODGames_dummy), floor(.8*nrow(subCODGames_dummy)))
+Train <- subCODGames_dummy[inds, ]
+Test <- subCODGames_dummy [-inds, ]
 set.seed(NULL)
 ```
 
 ```{r}
 set.seed(123)
-model_rf <- randomForest(PrimaryWeapon ~., data = Train, ntrees = 500)
+model_rf <- randomForest(PrimaryWeapon ~ ., data = Train, ntrees = 500)
 set.seed(NULL)
 
 predictsRf <- predict(model_rf, newdata = Test)
@@ -108,22 +151,31 @@ cat("Accuracy Random Forest:", mean(predictsRf == Test$PrimaryWeapon))
 ```
 
 ```{r}
-xvars <- unlist(names(select(subCODGames, -PrimaryWeapon)))
-#"Map1","Map2","Choice","MapVote","Date","FullPartial","Result"      
-#,"XPType","DidPlayerVote","GameType" 
-subCODGames[, xvars] <- scale(subCODGames[,xvars], center = TRUE, scale = TRUE) 
+accvec <- rep(NA,50)
 
-rmsevec <- rep(NA,50)
-
-for (x in 1:50) {
+for (x in 2:50) {
   knn_res <- knn(train = Train[,xvars,drop=FALSE], 
                test = Test[,xvars,drop=FALSE], 
                cl=Train$PrimaryWeapon,
                k=x)
-  rmsevec[x] <- sqrt((Test$PrimaryWeapon - knn_res$pred)^2)
+  
+  accvec[x] <-  mean(Test$PrimaryWeapon == as.character(knn_res))
 }
+
+# Store results as a dataframe
+k_compare <-  data.frame(k = 2:50, Acc=accvec[-1])
+
+# Display a graph of the results to visualize the best k
+ggplot(data=k_compare, aes(x=k,y=Acc)) +
+  geom_line()
 ```
 
+```{r}
+# Looking for the ma
+k_compare %>%
+  arrange(desc(Acc)) %>%
+  head(3)
+```
 
 
 
