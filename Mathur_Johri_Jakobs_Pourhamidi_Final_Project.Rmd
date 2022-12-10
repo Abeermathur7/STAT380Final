@@ -19,6 +19,7 @@ library(randomForest)
 library(stats)
 library(FNN)
 library(fastDummies)
+library(kernlab)
 ```
 
 #### Load and clean datasets
@@ -85,7 +86,7 @@ ggplot(groupElim, aes(x=Eliminations, y=avgXP)) + geom_point() +  #ggplot with m
 The predictor 'Eliminations' has a very strong positive linear correlation to the TotalXP variable. We calculated this by grouping the number of eliminations into a new dataframe and averaging the TotalXP received by people getting that number of eliminations into a new column of that dataframe. We then ggplotted it and observed a very strong linear relationship before adding the blue line and creating a linear model with the two variables to print its slope and intercept.
 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # Cleaning the data from NAs
 subCODGames <- subCODGames %>% drop_na()
 
@@ -170,13 +171,23 @@ ggplot(data=k_compare, aes(x=k,y=Acc)) +
   geom_line()
 ```
 
-```{r}
-# Looking for the ma
-k_compare %>%
-  arrange(desc(Acc)) %>%
-  head(3)
+```{r message=FALSE, warning=FALSE}
+cat("Accuracy KNN:",k_compare$Acc[33-1])
 ```
 
+```{r message=FALSE, warning=FALSE}
+
+modelSVM <- ksvm(PrimaryWeapon ~ ., data = Train)
+
+predictions <- predict(modelSVM, newdata = Test)
+
+contingency_table <- table(predictions, Test$PrimaryWeapon)
+
+accuracy <- sum(diag(contingency_table)) / sum(contingency_table)
+
+cat("Accuracy SVM:",accuracy)
+
+```
 
 
 
