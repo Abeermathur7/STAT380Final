@@ -23,6 +23,7 @@ library(kernlab)
 ```
 
 #### Load and clean datasets
+
 ```{r message=FALSE, warning=FALSE}
 CODGameModes <- read.csv("https://raw.githubusercontent.com/Abeermathur7/STAT380Final/main/CODGameModes.csv")
 CODGames_p1_380 <- read.csv("https://raw.githubusercontent.com/Abeermathur7/STAT380Final/main/CODGames_p1_380.csv")
@@ -35,9 +36,17 @@ dupModes$Mode <- paste("HC -", dupModes$Mode) #adding HC mode limits
 allModes <- rbind(dupModes,CODGameModes)
 ```
 
+In this project we are looking at the CODGames_p1_380,CODGames_p2_380  and 
+CODGameModes files. CODGameMode includes the list of game modes that can be played, 
+and the other datasets incude details on specific games played and details about 
+those matches. We first begin by combining the two part 1 and part2 datasets into one unified dataset called CODGames using rbind. We also created dubModes which provided us with the game modes, but since they did not contain "HC-" so we had to do some cleaning and use rbind again so we can have all the game modes, score limits and time limits within one table.
+
 ### Task 1 (Exploratory Analysis): 
 
+
+
 #### Research Question: Which game mode is most likely to reach the score limit? 
+
 ```{r message=FALSE, warning=FALSE}
 scoreLimit <- left_join(CODGames,allModes, by = c("GameType"="Mode")) #add score limit column
 
@@ -51,6 +60,11 @@ limitList$total <- totalCount$count
 limitList <- mutate(limitList, limitProb = n/total) #find ratio of score limit reached to games played
 limitList %>% arrange(desc(limitProb)) #print descending
 ```
+
+In the dataset there are a variety of "Game Types" and they can vary from Team Death Match, Domination to Hardpoint. The match ends when the team has attanined the score limit or the time limit runs out. In this task, we are trying to assess which game mode would result in the score limit being met first. In order to do this we first began by doing  a left join on CODGames and allmodes to make the score limits column. We then split the team scores into into individual columns and use an infelse to see whether either team reached the limit. We then group the data by game types and calculate the probability by dividing score limits reached to the total games that were played. 
+
+
+
 ```{r}
 ggplot(limitList, aes(x=GameType,y=limitProb)) + 
   geom_bar(stat = "identity", fill = "#301934") + 
@@ -58,7 +72,7 @@ ggplot(limitList, aes(x=GameType,y=limitProb)) +
   ylab("Prob of Score Limit Reached")
 ```
 
-Both types of Domination and Hardpoint have the highest chances of reaching the score limit, with domination reaching it 100% of the time. This may be because...............
+We created a histogram to better visualize our results. The Game Types  of Domination and Hardpoint in both Hard Core and normal mode have the highest chances of reaching the score limit, with domination reaching it 100% of the time. This may be because these game modes are more objective based with teams attaining extra points for capturing a zone or accomplishing an objective as opposed to surviving till the time limit.
 
 ### Task 2 (Inference):
 
