@@ -65,14 +65,11 @@ Both types of Domination and Hardpoint have the highest chances of reaching the 
 #### Research Question: Which predictors are associated with the TotalXP?
 ```{r}
 subCODGames <- CODGames %>% select(1:16) #remove cols where almost every row is NA
-model <- rpart(TotalXP ~ ., data = subCODGames) #build rpart model
-sig <- as_tibble(model$frame$var) #leafs and splits from rpart frame to tibble
-sig_predictors <- sig %>% filter(. != "<leaf>") %>% unique() #delete duplicate splits & all leafs for sig vars
-
-sig_predictors
+model <- lm(TotalXP ~ ., data = subCODGames) #build the linear model
+step_result <- step(model, direction = "backward") # backward-elimination for vars with best p-value
 ```
 
-XPType, Result, Eliminations, Date, and Map1 are the predictors that are most associated with TotalXP. We calculated this by preforming an rpart on TotalXP and picked out the variables that were used to split the data to record them as significant predictors.
+To find which predictors are associated with the TotalXP the most we preformed a linear regression model on all variables besides TotalXP then preformed backwards stepwise variable selection to find and rank the best predicting variables, some of which include Eliminations, FullPartial, Damage, and Deaths We can then see that the variable with the lowest and best AIC is Eliminations, which is what we will use in the next part.
 
 #### Research Question: Of the predictors associated with the response, select one of the predictors and explain the relationship between the predictor and TotalXP. 
 ```{r message=FALSE, warning=FALSE}
@@ -83,7 +80,7 @@ ggplot(groupElim, aes(x=Eliminations, y=avgXP)) + geom_point() +  #ggplot with m
   geom_smooth(method = "lm") + annotate("text",x = 10, y = 40000, label = string,size = 4) 
 ```
 
-The predictor 'Eliminations' has a very strong positive linear correlation to the TotalXP variable. We calculated this by grouping the number of eliminations into a new dataframe and averaging the TotalXP received by people getting that number of eliminations into a new column of that dataframe. We then ggplotted it and observed a very strong linear relationship before adding the blue line and creating a linear model with the two variables to print its slope and intercept.
+Of the best predictors found with backwards stepwise selection we picked the best one, 'Eliminations', which has a very strong positive linear correlation to the TotalXP variable. We calculated this by grouping the number of eliminations into a new dataframe and averaging the TotalXP received by people getting that number of eliminations into a new column of that dataframe. We then used ggplot to observe a very strong linear relationship before adding the linear regression model's line of best fit and printing the slope and intercept. We can interpret from the slope and intercept coefficient that for each elimination one gains on average 518.82 XP and with no eliminations one still averages 5807.79 XP
 
 
 ```{r message=FALSE, warning=FALSE}
@@ -126,7 +123,6 @@ subCODGames_dummy <- dummy_cols(subCODGames, select_columns = cat_vars, remove_s
 badVars <- c("Date", "Result", "MapVote")
 subCODGames_dummy <- subCODGames_dummy %>% select(-badVars)
 ```
-
 
 ```{r}
 # Select x variables for model building purposes
