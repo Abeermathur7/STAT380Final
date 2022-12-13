@@ -96,6 +96,31 @@ ggplot(groupElim, aes(x=Eliminations, y=avgXP)) + geom_point() +  #ggplot with m
 
 Of the best predictors found with backwards stepwise selection we picked the best one, 'Eliminations', which has a very strong positive linear correlation to the TotalXP variable. We calculated this by grouping the number of eliminations into a new dataframe and averaging the TotalXP received by people getting that number of eliminations into a new column of that dataframe. We then used ggplot to observe a very strong linear relationship before adding the linear regression model's line of best fit and printing the slope and intercept. We can interpret from the slope and intercept coefficient that for each elimination one gains on average 518.82 XP and with no eliminations one still averages 5807.79 XP
 
+### Task 3: Prediction
+
+For this task, we wish to compare classification models on PrimaryWeapon, a variable that provides the primary weapon of the player used during a game. As such, we will formulate an appropriate research question:
+
+* Up to what accuracy can we identify the primary weapon the player carries in a game?
+
+We do not expect very high accuracies, mainly because of the large quantity of levels in PrimaryWeapon.
+
+```{r}
+levels(factor(subCODGames$PrimaryWeapon))
+```
+
+We can see that there are 23 primary weapons recorded in the variable (two are duplicates, we address this while cleaning the dataset). It will be difficult to accurately predict the use of each weapon; nevertheless, we are interested in how well it can be done with the models we know.
+
+To answer our question, we first need to modify the dataset to...
+
+* remove rows with NAs, since they interfere with model building.
+
+* massage explanatory variables, since some are in formats that can't be used in models (such as Result).
+    
+    * The example given (Result) is turned into a three-level categorical variable with values that are more easily interpreted/used in models ("Win", "Loss", and "Draw").
+    
+    * Other variables (including the response) are cleaned of special characters and whitespace to assist the "dummy_cols" function, which helps create indicator variables.
+
+* convert categorical variables to indicators, since kNN and SVM, models we plan on using, require scaled quantitative data.
 
 ```{r message=FALSE, warning=FALSE}
 # Cleaning the data from NAs
@@ -116,12 +141,9 @@ matchResult <- function(x){
 # Separating Result into a categorical variable
 subCODGames$ResultCat <- apply(data.frame(subCODGames$Result), 1, matchResult)
 
-# Make PrimaryWeapon a factor
-subCODGames$PrimaryWeapon <- as.factor(subCODGames$PrimaryWeapon)
-
-# Remove spaces from categorical variable values
+# Remove spaces and special characters from categorical variable values
 cat_vars = c('Map1', 'Map2', 'Choice', 'FullPartial', 'ResultCat', 'XPType', 'DidPlayerVote', 'GameType')
-for(cat_var in cat_vars){
+for(cat_var in c(cat_vars, "PrimaryWeapon")){
   subCODGames[,cat_var] <- apply(data.frame(subCODGames[,cat_var]), 1, str_replace_all, pattern=" ", replacement="_")
   subCODGames[,cat_var] <- apply(data.frame(subCODGames[,cat_var]), 1, str_replace_all, pattern="-", replacement="_")
   subCODGames[,cat_var] <- apply(data.frame(subCODGames[,cat_var]), 1, str_replace_all, pattern="'", replacement="_")
@@ -129,14 +151,26 @@ for(cat_var in cat_vars){
   subCODGames[,cat_var] <- apply(data.frame(subCODGames[,cat_var]), 1, str_replace_all, pattern="\\+", replacement="plus")
 }
 
+# Substitute "AUG_" with "AUG" in PrimaryWeapon
+subCODGames$PrimaryWeapon <- apply(data.frame(subCODGames$PrimaryWeapon), 1, str_replace_all, pattern="AUG_", replacement="AUG")
+
+# Make PrimaryWeapon a factor (useful for model building)
+subCODGames$PrimaryWeapon <- as.factor(subCODGames$PrimaryWeapon)
+
 # Make dummy variables (indicators) for each categorical variable
 subCODGames_dummy <- dummy_cols(subCODGames, select_columns = cat_vars, remove_selected_columns = TRUE)
 
+```
 
+For the models we create, we wish to use as many variables as possible, however, some of them are not suited for model building. Result has already been modified into ResultCat, so we plan on removing Result. We also remove Date, since dates are poor predictors for a variable like PrimaryWeapon. MapVote is in a format that does not suit models, and like Date, doesn't appear to be a good predictor for weapon type.
+
+```{r, message=FALSE}
 # Deselect variables that aren't useful
 badVars <- c("Date", "Result", "MapVote")
 subCODGames_dummy <- subCODGames_dummy %>% select(-badVars)
 ```
+
+Now, we scale the predictors and perform an 80/20 split of the data into a Train and Test dataset. We use the random seed 123 to perform the random split, different seeds may result in different accuracies. Future studies may wish to use cross validation instead. The Train will be used to train the models, and the Test will be used to test and compare predictive accuracies of the models.
 
 ```{r}
 # Select x variables for model building purposes
@@ -151,15 +185,49 @@ Test <- subCODGames_dummy [-inds, ]
 set.seed(NULL)
 ```
 
+In the end, we have 3 new datasets. The first is the full massaged and scaled dataset, which has 808 observations and 139 variables.
+
+```{r}
+# Dimensions of the full massaged and scaled dataset
+dim(subCODGames_dummy)
+```
+
+We created the Train dataset which is a random 80% subset of the full dataset (649 observations).
+
+```{r}
+dim(Train)
+```
+
+Finally, we created the Test dataset which has the leftover 20% of the full data (162 observations).
+
+```{r}
+dim(Test)
+```
+
+
+#### Random Forest
+
+The first model we create is a random forest. Random forest is a type of ensemble method, where many weak learners (in this case, decision trees) are fitted to bootstrapped samples of the dataset on a subset of variables. Data that is not used for fitting each learner is called "out-of-bag" data, and is used by each learner to form predictions. These predictions by each learner are then combined using a method called bootstrap aggregating (bagging) to create a much stronger predictive model.
+
+We use the randomForest function to fit the model, and we set the number of trees (ntrees) to be the default (500). We also keep the number of variables to consider at each split (mtry) at the default value, which is $\sqrt{\text{139}}$.
+
 ```{r}
 set.seed(123)
 model_rf <- randomForest(PrimaryWeapon ~ ., data = Train, ntrees = 500)
 set.seed(NULL)
 
-predictsRf <- predict(model_rf, newdata = Test)
+predictsRf <- predict(model_rf, newdata = Test, type="response")
 
 cat("Accuracy Random Forest:", mean(predictsRf == Test$PrimaryWeapon))
 ```
+
+We get an accuracy score of 0.22, a low number as expected from the sheer number of levels PrimaryWeapon holds.
+
+#### kNN Classification
+
+The second model we create, k-Nearest Neighbors (kNN), is a simple classification model that, given a data point (scaled predictors) takes the class of the majority of its k-neighbors. Neighbors are decided using distance functions like Euclidean. The need for distance functions is the main reason why we scale the data (as low magnitude values like indicators would get overruled by larger magnitude quantitative values).
+
+To find the appropriate k value, we iterate from 2 to 50 (an arbitrarily high value). For each kNN model, we calculate its accuracy on the test and store it in a vector. In the end, we display these accuracies in a graph and pick the k value that produces the highest accuracy.
 
 ```{r}
 accvec <- rep(NA,50)
@@ -185,6 +253,16 @@ ggplot(data=k_compare, aes(x=k,y=Acc)) +
 cat("Accuracy KNN:",k_compare$Acc[33-1])
 ```
 
+The highest accuracy displayed in the graph is 0.235, which comes from the k=33 neares neighbors model. This accuracy is higher than what we observed from the random forest classifier, though still low in general.
+
+#### SVMs
+
+Our final model are Support Vector Machines (SVMs) which aim to find hyperplanes that can classify the observations (data points). It accomplishes this while also maximizing the distance between the hyperplane and the data points on either side of the divide. The figure below better illustrates how the hyperplane divides observations.
+
+![Explanation of SVM](svm.png)
+
+The ksvm() function comes from the package "[kernLabs](https://cran.r-project.org/web/packages/kernlab/index.html)", which is mainly used to implement kernel-based machine learning methods. The inputs for ksvm() are the same as for the base linear regression function lm(), a formula and a specification for the dataset. There are many other inputs that the function provides, such as type or kernel, but for this analysis we leave them to their defaults. As our response is a multi-level categorical variable, the resulting SVM model uses a "one-against-one" approach, where k(k-1)/2 binary classifiers (k = number of classes) are trained on the provided data and predictions are chosen through a voting scheme, like an ensemble model.
+
 ```{r message=FALSE, warning=FALSE}
 
 modelSVM <- ksvm(PrimaryWeapon ~ ., data = Train)
@@ -196,8 +274,26 @@ contingency_table <- table(predictions, Test$PrimaryWeapon)
 accuracy <- sum(diag(contingency_table)) / sum(contingency_table)
 
 cat("Accuracy SVM:",accuracy)
-
 ```
+
+The SVM model has an accuracy of 0.228, which is better than our random forest model, but worse than our best kNN model. 
+
+
+#### Conclusion
+
+We are able to predict the accuracy of the Primary Weapon used to a degree of about 23%. The model that works best for this is KNN classification with 33 neighbors since this accuracy was higher than both SVM and Random Forest. Although this is true, both SVM and Random Forest have very similar accuracies to the KNN model differing by about 0.01%. For this reason we believe that it would be beneficial to test out other methods in the future to see if there is a clear method that is best for building a model to predict the primary weapon. We discussed that PCA may be a good choice for this as we found out that our variables included in the model increased significantly when we had to create dummy variables for our analysis. Hence, PCA would be a good fit to identify the more important variables from the ones that have a lesser impact. 
+
+
+
+
+
+# Report Conclusion
+
+In this report we analyzed Call of Duty game data and and built models to answer given and self-derived research questions. We began by loading, cleaning, and manipulating the given csv files so that they can be easier to work with. For our first task we wanted to understand which game mode will first attain the desired score limit. We utilized various data manipulation techniques to conclude that Domination and Hardpoint (Hardcore and Normal) would be the first to reach the score limit. For the second task we were asked to identify which variables (predictors) were associated with TotalXP. For this task we end up concluding that Eliminations was a key predictor and showcased a strong positive linear relationship with TotalXP. Finally, in task 3, we compared classification models to identify up to what accuracy we could predict which primary weapon the player carries in a game. We utilized Random Forest, SVM and KNN to answer this question. Our results told us that KNN classification gave us the highest accuracy of 0.235.
+
+Ultimately our analysis throughout the report made us realize how important it is to have clean and organized data to work with in order to achieve good results. This dataset was especially unorganized and full of typos which made it harder to deal with and required a lot more preparation. Our biggest takeaway was that we spent the most time organizing the data to be used in the models in order to achieve outputs from our created models. 
+
+
 
 
 
