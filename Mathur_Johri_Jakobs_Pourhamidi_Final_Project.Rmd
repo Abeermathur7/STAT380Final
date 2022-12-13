@@ -1,5 +1,5 @@
 ---
-title: "Mathur_Johri_Jakobs_Pourhamidi_Final_Project"
+title: "Stat 380 Final Project"
 author: "Abeer Mathur, Marvin Jakobs, Divyesh Johri, Cinah Pourhamidi"
 date: "2022-12-01"
 output: html_document
